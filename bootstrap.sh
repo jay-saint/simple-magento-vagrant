@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 
 SAMPLE_DATA=$1
-MAGE_VERSION="1.9.1.0"
+PASSWORD='Password123!'
+MAGE_VERSION="1.9.2.2"
 DATA_VERSION="1.9.0.0"
 
 # Update Apt
@@ -13,8 +14,10 @@ apt-get update
 apt-get install -y apache2
 apt-get install -y php5
 apt-get install -y libapache2-mod-php5
-apt-get install -y php5-mysqlnd php5-curl php5-xdebug php5-gd php5-intl php-pear php5-imap php5-mcrypt php5-ming php5-ps php5-pspell php5-recode php5-snmp php5-sqlite php5-tidy php5-xmlrpc php5-xsl php-soap
-
+apt-get install -y php5-mysqlnd php5-curl php5-gd php5-intl php-pear php5-imap php5-mcrypt php5-ming php5-ps php5-pspell php5-recode php5-sqlite php5-tidy php5-xmlrpc php5-xsl php-soap
+apt-get install -y php5-cli curl
+curl -Ss https://getcomposer.org/installer | php
+sudo mv composer.phar /usr/bin/composer
 php5enmod mcrypt
 
 # Delete default apache web dir and symlink mounted vagrant dir from host machine
@@ -54,12 +57,26 @@ service apache2 restart
 # --------------------
 # Ignore the post install questions
 export DEBIAN_FRONTEND=noninteractive
-# Install MySQL quietly
-apt-get -q -y install mysql-server-5.5
 
-mysql -u root -e "CREATE DATABASE IF NOT EXISTS magentodb"
-mysql -u root -e "GRANT ALL PRIVILEGES ON magentodb.* TO 'magentouser'@'localhost' IDENTIFIED BY 'password'"
-mysql -u root -e "FLUSH PRIVILEGES"
+# install mysql and give password to installer
+sudo debconf-set-selections <<< "mysql-server mysql-server/root_password password $PASSWORD"
+sudo debconf-set-selections <<< "mysql-server mysql-server/root_password_again password $PASSWORD"
+sudo apt-get -y install mysql-server
+sudo apt-get install php5-mysql
+
+# install phpmyadmin and give password(s) to installer
+# for simplicity I'm using the same password for mysql and phpmyadmin
+sudo debconf-set-selections <<< "phpmyadmin phpmyadmin/dbconfig-install boolean true"
+sudo debconf-set-selections <<< "phpmyadmin phpmyadmin/app-password-confirm password $PASSWORD"
+sudo debconf-set-selections <<< "phpmyadmin phpmyadmin/mysql/admin-pass password $PASSWORD"
+sudo debconf-set-selections <<< "phpmyadmin phpmyadmin/mysql/app-pass password $PASSWORD"
+sudo debconf-set-selections <<< "phpmyadmin phpmyadmin/reconfigure-webserver multiselect apache2"
+sudo apt-get -y install phpmyadmin
+
+#create magento db
+mysql --user="root" --password="$PASSWORD" -e "CREATE DATABASE IF NOT EXISTS magentodb"
+mysql --user="root" --password="$PASSWORD" -e "GRANT ALL PRIVILEGES ON magentodb.* TO 'magentouser'@'localhost' IDENTIFIED BY 'password'"
+mysql --user="root" --password="$PASSWORD" -e "FLUSH PRIVILEGES"
 
 
 # Magento
@@ -69,13 +86,16 @@ mysql -u root -e "FLUSH PRIVILEGES"
 # Download and extract
 if [[ ! -f "/vagrant/httpdocs/index.php" ]]; then
   cd /vagrant/httpdocs
-  wget http://www.magentocommerce.com/downloads/assets/${MAGE_VERSION}/magento-${MAGE_VERSION}.tar.gz
-  tar -zxvf magento-${MAGE_VERSION}.tar.gz
-  mv magento/* magento/.htaccess .
+  wget -nv https://github.com/OpenMage/magento-mirror/archive/${MAGE_VERSION}.tar.gz
+  #Changed URL to Github Mirror due to no static URL for new version of Magento
+  #wget http://www.magentocommerce.com/downloads/assets/${MAGE_VERSION}/magento-${MAGE_VERSION}.tar.gz
+  tar -zxf ${MAGE_VERSION}.tar.gz
+  mv magento-mirror-${MAGE_VERSION}/* magento-mirror-${MAGE_VERSION}/.htaccess .
   chmod -R o+w media var
   chmod o+w app/etc
   # Clean up downloaded file and extracted dir
-  rm -rf magento*
+  rm -rf magento-mirror-${MAGE_VERSION}*
+  rm ${MAGE_VERSION}.tar.gz
 fi
 
 
@@ -85,7 +105,7 @@ if [[ $SAMPLE_DATA == "true" ]]; then
 
   if [[ ! -f "/vagrant/magento-sample-data-${DATA_VERSION}.tar.gz" ]]; then
     # Only download sample data if we need to
-    wget http://www.magentocommerce.com/downloads/assets/${DATA_VERSION}/magento-sample-data-${DATA_VERSION}.tar.gz
+    wget -nv http://www.magentocommerce.com/downloads/assets/${DATA_VERSION}/magento-sample-data-${DATA_VERSION}.tar.gz
   fi
 
   tar -zxvf magento-sample-data-${DATA_VERSION}.tar.gz
@@ -100,19 +120,19 @@ fi
 if [ ! -f "/vagrant/httpdocs/app/etc/local.xml" ]; then
   cd /vagrant/httpdocs
   sudo /usr/bin/php -f install.php -- --license_agreement_accepted yes \
-  --locale en_US --timezone "America/Los_Angeles" --default_currency USD \
+  --locale en_US --timezone "America/New_York" --default_currency USD \
   --db_host localhost --db_name magentodb --db_user magentouser --db_pass password \
   --url "http://127.0.0.1:8080/" --use_rewrites yes \
   --use_secure no --secure_base_url "http://127.0.0.1:8080/" --use_secure_admin no \
   --skip_url_validation yes \
   --admin_lastname Owner --admin_firstname Store --admin_email "admin@example.com" \
-  --admin_username admin --admin_password password123123
+  --admin_username admin --admin_password $PASSWORD
   /usr/bin/php -f shell/indexer.php reindexall
 fi
 
 # Install n98-magerun
 # --------------------
 cd /vagrant/httpdocs
-wget https://raw.github.com/netz98/n98-magerun/master/n98-magerun.phar
+wget -nv https://raw.githubusercontent.com/netz98/n98-magerun/master/n98-magerun.phar
 chmod +x ./n98-magerun.phar
 sudo mv ./n98-magerun.phar /usr/local/bin/
