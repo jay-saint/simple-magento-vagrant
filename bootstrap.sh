@@ -3,7 +3,7 @@
 SAMPLE_DATA=$1
 PASSWORD='Password123!'
 MAGE_VERSION="1.9.2.2"
-DATA_VERSION="1.9.0.0"
+DATA_VERSION="1.9.1.0"
 
 # Update Apt
 # --------------------
@@ -103,15 +103,17 @@ fi
 if [[ $SAMPLE_DATA == "true" ]]; then
   cd /vagrant
 
-  if [[ ! -f "/vagrant/magento-sample-data-${DATA_VERSION}.tar.gz" ]]; then
+  if [[ ! -f "/vagrant/compressed-magento-sample-data-${DATA_VERSION}.tgz" ]]; then
     # Only download sample data if we need to
-    wget -nv http://www.magentocommerce.com/downloads/assets/${DATA_VERSION}/magento-sample-data-${DATA_VERSION}.tar.gz
+    #wget -nv http://www.magentocommerce.com/downloads/assets/${DATA_VERSION}/magento-sample-data-${DATA_VERSION}.tar.gz
+    #Download sample data from https://github.com/Vinai/compressed-magento-sample-data to save badwidth and for lack of current direct link from https://magento.com
+    wget -nv https://raw.githubusercontent.com/Vinai/compressed-magento-sample-data/${DATA_VERSION}/compressed-magento-sample-data-${DATA_VERSION}.tgz
   fi
 
-  tar -zxvf magento-sample-data-${DATA_VERSION}.tar.gz
+  tar -zxf compressed-magento-sample-data-${DATA_VERSION}.tgz
   cp -R magento-sample-data-${DATA_VERSION}/media/* httpdocs/media/
   cp -R magento-sample-data-${DATA_VERSION}/skin/*  httpdocs/skin/
-  mysql -u root magentodb < magento-sample-data-${DATA_VERSION}/magento_sample_data_for_${DATA_VERSION}.sql
+  mysql --user="root" --password="$PASSWORD" magentodb < magento-sample-data-${DATA_VERSION}/magento_sample_data_for_${DATA_VERSION}.sql
   rm -rf magento-sample-data-${DATA_VERSION}
 fi
 
