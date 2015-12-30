@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-SAMPLE_DATA=$1
+SAMPLE_DATA=false
 PASSWORD='Password123!'
 MAGE_VERSION="1.9.2.2"
 DATA_VERSION="1.9.1.0"
