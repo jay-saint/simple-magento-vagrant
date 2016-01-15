@@ -33,7 +33,7 @@ Vagrant will configure the base system before downloading Magento and running th
 
 * In your browser, head to `127.0.0.1:8080`
 * Magento CMS is accessed at `127.0.0.1:8080/admin`
-* User: `admin` Password: `password123123`
+* User: `admin` Password: `Password123!`
 * phpMyAdmin is accessed at `127.0.0.1:8080/phpmyadmin`
 * User: `root` Password: `Password123!`
 * Access the virtual machine directly using `vagrant ssh`
